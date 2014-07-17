@@ -103,13 +103,23 @@ void cleanThreads(void) {
     threadsClean = 0;
 }
 
+void endOfTest(ulong data) {
+    del_timer(&testTimer);
+    printk(KERN_INFO "[PP] Time is up!\n");
+    cleaningInTimer = 1;
+    cleanThreads();
+    cleaningInTimer = 0;
+}
+
 static int __init rcuSimpleInit(void) {
     int i;
+    int ret;
     if (nReaders == 0 || nWriters == 0 || duration == 0) {
         printk(KERN_ERR "Error: nReaders, nWriters and duration must be positive integers\n");
         return -EPERM;
     }
 
+    setup_timer(&testTimer, endOfTest, 0);
     spin_lock_init(&writerLock);
     foo = kmalloc(sizeof(TestRCUStruct), GFP_KERNEL);
     foo->a = 8;
@@ -128,12 +138,18 @@ static int __init rcuSimpleInit(void) {
         sprintf(baseThreadName, "w_%d", i);
         writers[i] = kthread_run(&writerRoutine, (void*) &i, baseThreadName);
     }
+    ret = mod_timer(&testTimer, jiffies + msecs_to_jiffies(duration));
+    if (ret)
+        printk("Error in mod_timer\n");
 
     return 0;    // Non-zero return means that the module couldn't be loaded.
 }
 
 static void __exit rcuSimpleCleanup(void) {
-    cleanThreads();
+    if (cleaningInTimer)
+        while(cleaningInTimer);
+    else if (!threadsClean)
+        cleanThreads();
 
     printk(KERN_INFO "[PP] Cleaning up module.\n");
 }
