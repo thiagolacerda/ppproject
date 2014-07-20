@@ -52,8 +52,12 @@ main <- function() {
 		filename <- argv[i]
 		table <- read.table(filename, header=TRUE, sep="\t")
 		data <- table$nr_reads
+		data1 <- table$nr_writes
 
+		cat("Reads\n")
 		descriptive(filename, data)
+		cat("Writes\n")
+		descriptive(filename, data1)
 
 		test <- wilcox.test(data, conf.level=(1-alpha), conf.int=TRUE)
 		num_reads[i] <- test$estimate
